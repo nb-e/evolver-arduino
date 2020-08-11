@@ -30,7 +30,8 @@ String led_address = "light";
 evolver_si led("light", "_!", num_vials+1); // 17 CSV-inputs from RPI
 boolean new_LEDinput = false;
 int saved_LEDinputs[] = {4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095};
-s
+
+
 void setup()
 {
 
@@ -57,6 +58,7 @@ void loop() {
   if (stringComplete) {
     SerialUSB.println(inputString);
     in.analyzeAndCheck(inputString);
+    led.analyzeAndCheck(inputString);
 
     if(in.addressFound){
       if (in.input_array[0] == "i" || in.input_array[0] == "r") {
@@ -80,7 +82,33 @@ void loop() {
       }
 
       inputString = "";
+      in.addressFound = false;
+    }
 
+            // LED Logic
+    if (led.addressFound) {
+      if (led.input_array[0] == "i" || led.input_array[0] == "r") {
+        SerialUSB.println("Saving LED Setpoints");
+        for (int n = 1; n < num_vials+1; n++) {
+          saved_LEDinputs[n-1] = led.input_array[n].toInt();
+        }
+        
+        SerialUSB.println("Echoing New LED Command");
+        new_LEDinput = true;
+        echoLED();
+        
+        SerialUSB.println("Waiting for OK to execute...");
+      }
+      if (led.input_array[0] == "a" && new_LEDinput) {
+        update_LEDvalues();
+        SerialUSB.println("Command Executed!");
+        new_LEDinput = false;       
+        
+      }
+
+
+      led.addressFound = false;
+      inputString = "";
     }
 
     //Clears strings if too long
@@ -90,7 +118,6 @@ void loop() {
     }
 
     stringComplete = false;
-    in.addressFound = false;
   }
   exec_stir();
 }
@@ -158,4 +185,27 @@ void serialEvent(int time_wait) {
     delay(1);
   }
 
+}
+
+void echoLED() {
+  digitalWrite(12, HIGH);
+  
+  String outputString = led_address + "e,";
+  for (int n = 1; n < num_vials+1 ; n++) {
+    outputString += led.input_array[n];
+    outputString += comma;
+  }
+  outputString += end_mark;
+  delay(100);
+  SerialUSB.println(outputString);
+  Serial1.print(outputString);
+  delay(100);
+  digitalWrite(12, LOW);
+}
+
+void update_LEDvalues() {
+  for (int i = 0; i < num_vials; i++) {
+    Tlc.set(RIGHT_PWM, i, 4095 - saved_LEDinputs[i]);
+  }
+  while(Tlc.update());
 }
