@@ -87,6 +87,26 @@ void setup() {
 
 }
 
+
+///// How the code was working:
+///// 1. Constantly taking OD
+/////  - by looping and running read_MuxShield
+/////  - Each loop read one vial
+///// 2. Setting light values  and outputting OD whenever the correct string was found via serial
+/////
+///// How it's working now:
+///// 1. Take OD every "period" milliseconds
+/////  - Save light values
+/////  - Turn off light
+/////  - Take OD for all vials
+/////  - Turn on light
+///// 2. This causes it to miss acknowledge commands from the server.
+/////  - Therefore new light values from the server will not update the PWM board
+/////  
+/////  
+/////  
+
+ 
 void loop() {
   currentMillis = millis();
   if (currentMillis - startMillis >= period){
