@@ -20,7 +20,7 @@ int s0 = 7, s1 = 8, s2 = 9, s3 = 10, SIG_pin = A0;
 int num_vials = 16;
 int mux_readings[16]; // The size Assumes number of vials
 int active_vial = 0;
-int PDtimes_averaged = 1000;
+int PDtimes_averaged = 100; //changed so read_MuxShield wouldn't take so long
 int output[] = {60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000};
 int Input[] = {4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095};
 
@@ -36,7 +36,7 @@ boolean new_PDinput = false;
 int saved_PDaveraged = 1000; // saved input from Serial Comm.
 
 
-// LED Settings
+// LIGHT Settings
 String led_address = "light";
 evolver_si led("light", "_!", num_vials+1); // 17 CSV-inputs from RPI
 boolean new_LEDinput = false;
@@ -46,7 +46,7 @@ int saved_LEDinputs[] = {4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,
 // Light Pausing for OD Reading
 unsigned long startMillis;  //some global variables available anywhere in the program
 unsigned long currentMillis;
-const unsigned long period = 5000;  //number of milliseconds to wait between OD readings
+const unsigned long period = 10000;  //number of milliseconds to wait between OD readings
 int LED_save[] = {4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095};
 unsigned long time1;
 unsigned long time2;
@@ -88,30 +88,23 @@ void setup() {
 }
 
 void loop() {
-  SerialUSB.print("Reading Vial:");
-  SerialUSB.println(active_vial);
-
   currentMillis = millis();
   if (currentMillis - startMillis >= period){
 //     //Only read OD if period has elapsed, so we can turn off the light
 //     //Necessary to get accurate OD measurement
     SerialUSB.println("Turning OFF Light");
-    for (int n = 1; n < num_vials+1; n++) {
-      saved_LEDinputs[n-1] = 0;
+    for (int n = 0; n < num_vials; n++) {
+      saved_LEDinputs[n] = 0;
     }
-    new_LEDinput = true;
-    echoLED();
     update_LEDvalues();
     SerialUSB.println("Light OFF");
-    delay(500);
+    delay(100);
     
     time1 = millis();
-    for (int n = 1; n < num_vials+1; n++) {
-      time2 = millis();
-      SerialUSB.println(active_vial);
+    for (int n = 0; n < num_vials; n++) {
+      ////Iterate through each vial and read its OD
       read_MuxShield();
-      SerialUSB.println(millis()-time2);
-      
+//      SerialUSB.println(active_vial);
     }
     
     SerialUSB.print("Reading took: ");
@@ -119,16 +112,13 @@ void loop() {
     
     SerialUSB.println("Turning ON Light");
     SerialUSB.println("Saving LED Setpoints");
-    for (int n = 1; n < num_vials+1; n++) {
+    for (int n = 0; n < num_vials+1; n++) {
 //      saved_LEDinputs[n-1] = led.input_array[n].toInt();
-      saved_LEDinputs[n-1] = LED_save[n];
+      LED_save[n] = saved_LEDinputs[n];
     }
-    echoLED();
     update_LEDvalues();
-    new_LEDinput = false;
     SerialUSB.println("Light ON");
-    delay(1000);
-    startMillis = currentMillis;  //start time of the current period
+    startMillis = millis();  //start time of the current period
   }
   
   if (stringComplete) {
@@ -164,14 +154,21 @@ void loop() {
       inputString = "";
     }
     
-    // LED Logic
+    // LIGHT Logic
+    // For changing set light values based off of server input
     if (led.addressFound) {
+      SerialUSB.print("LIGHT address found:: ");
+      for (int n = 0; n < num_vials+1; n++) {
+        SerialUSB.print(led.input_array[n]);
+      }
+      SerialUSB.println(" ");
+      SerialUSB.println("______________");
       if (led.input_array[0] == "i" || led.input_array[0] == "r") {
-        SerialUSB.println("Saving LED Setpoints");
+        SerialUSB.println("Saving LIGHT Setpoints");
         for (int n = 1; n < num_vials+1; n++) {
           saved_LEDinputs[n-1] = led.input_array[n].toInt();
         }
-        SerialUSB.println("Echoing New LED Command");
+        SerialUSB.println("Echoing New LIGHT Command");
         new_LEDinput = true;
         echoLED();
         
@@ -231,9 +228,15 @@ void echoLED() {
 }
 
 void update_LEDvalues() {
+  SerialUSB.println(" ");
+  SerialUSB.println("______________");
+  SerialUSB.print("LIGHT VALUES UPDATE::");
   for (int i = 0; i < num_vials; i++) {
     Tlc.set(LEFT_PWM, i, 4095 - saved_LEDinputs[i]);
+    SerialUSB.print(saved_LEDinputs[i]);
+    SerialUSB.print(",");
   }
+  SerialUSB.println("");
   while(Tlc.update());
 }
 
