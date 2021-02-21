@@ -20,7 +20,7 @@ int s0 = 7, s1 = 8, s2 = 9, s3 = 10, SIG_pin = A0;
 int num_vials = 16;
 int mux_readings[16]; // The size Assumes number of vials
 int active_vial = 0;
-int PDtimes_averaged = 100; //changed so read_MuxShield wouldn't take so long
+int PDtimes_averaged = 50; //changed so read_MuxShield wouldn't take so long
 int output[] = {60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000};
 int Input[] = {4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095};
 
@@ -33,7 +33,7 @@ int expected_PDinputs = 2;
 String photodiode_address = "od_135";
 evolver_si in("od_135", "_!", expected_PDinputs); //2 CSV Inputs from RPI
 boolean new_PDinput = false;
-int saved_PDaveraged = 1000; // saved input from Serial Comm.
+int saved_PDaveraged = 100; // saved input from Serial Comm. ****Not used***
 
 
 // LIGHT Settings
@@ -44,8 +44,9 @@ int saved_LEDinputs[] = {4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,
 
 
 // Light Pausing for OD Reading
-unsigned long startMillis;  //some global variables available anywhere in the program
-unsigned long currentMillis;
+unsigned long startMillis;  //start of this period
+unsigned long currentMillis; //current period length
+unsigned long exptStartMillis; //arduino start time
 const unsigned long period = 10000;  //number of milliseconds to wait between OD readings
 int LED_save[] = {4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095};
 unsigned long time1;
@@ -108,12 +109,17 @@ void setup() {
 
  
 void loop() {
+  serialEvent();
+//  if (stringComplete){
+//    SerialUSB.println("~~~~String Completed~~~~");
+//  }
   currentMillis = millis();
   if (currentMillis - startMillis >= period){
 //     //Only read OD if period has elapsed, so we can turn off the light
 //     //Necessary to get accurate OD measurement
     SerialUSB.println("Turning OFF Light");
     for (int n = 0; n < num_vials; n++) {
+      LED_save[n] = saved_LEDinputs[n]; //save the light vals so when we turn on later they will be right
       saved_LEDinputs[n] = 0;
     }
     update_LEDvalues();
@@ -125,6 +131,11 @@ void loop() {
       ////Iterate through each vial and read its OD
       read_MuxShield();
 //      SerialUSB.println(active_vial);
+      if (active_vial == 15){
+        active_vial = 0;
+      } else {
+        active_vial++;
+      }
     }
     
     SerialUSB.print("Reading took: ");
@@ -133,8 +144,7 @@ void loop() {
     SerialUSB.println("Turning ON Light");
     SerialUSB.println("Saving LED Setpoints");
     for (int n = 0; n < num_vials+1; n++) {
-//      saved_LEDinputs[n-1] = led.input_array[n].toInt();
-      LED_save[n] = saved_LEDinputs[n];
+      saved_LEDinputs[n] = LED_save[n];
     }
     update_LEDvalues();
     SerialUSB.println("Light ON");
@@ -154,9 +164,6 @@ void loop() {
     if (in.addressFound) {
       if (in.input_array[0] == "i" || in.input_array[0] == "r") {
         
-        SerialUSB.println("Saving PD Setting");
-        saved_PDaveraged = in.input_array[1].toInt();
-        
         SerialUSB.println("Echoing New PD Command");
         new_PDinput = true;
         dataResponse();
@@ -165,7 +172,6 @@ void loop() {
       }
       if (in.input_array[0] == "a" && new_PDinput) {
         
-        PDtimes_averaged = saved_PDaveraged;
         SerialUSB.println("PD Command Executed!");
         new_PDinput = false;
       }        
@@ -195,6 +201,7 @@ void loop() {
         SerialUSB.println("Waiting for OK to execute...");
       }
       if (led.input_array[0] == "a" && new_LEDinput) {
+//        if (new_LEDinput) {
         update_LEDvalues();
         SerialUSB.println("Command Executed!");
         new_LEDinput = false;       
@@ -285,22 +292,7 @@ void read_MuxShield() {
   unsigned long mux_total=0;
   for (int h=0; h<(PDtimes_averaged); h++){
     mux_total = mux_total + readMux(active_vial);
-    serialEvent();
-    if (stringComplete){
-      SerialUSB.println("String Completed, stop averaging");
-      SerialUSB.println(h);
-      break;
-    }
-  }
-  
-  if (!stringComplete){
-    output[active_vial] = mux_total / PDtimes_averaged;
-//    SerialUSB.println(output[active_vial]);
-    if (active_vial == 15){
-      active_vial = 0;
-    } else {
-      active_vial++;
-    }
+  output[active_vial] = mux_total / PDtimes_averaged;
   }
 }
 
