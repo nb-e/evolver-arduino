@@ -30,6 +30,12 @@ evolver_si led("od_led", "_!", num_vials+1); // 17 CSV-inputs from RPI
 boolean new_LEDinput = false;
 int saved_LEDinputs[] = {4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095};
 
+// bubble Settings
+String bubble_address = "bubble";
+String bubble_status = "ON";
+unsigned long time1;
+unsigned long time2;
+unsigned long time3;
 
 
 void setup() {
@@ -38,7 +44,7 @@ void setup() {
 
 
   analogReadResolution(16);
-  Tlc.init(LEFT_PWM,4095);
+  Tlc.init(RIGHT_PWM | LEFT_PWM, 4095);  
   Serial1.begin(9600);
   SerialUSB.begin(9600);
   // reserve 1000 bytes for the inputString:
@@ -47,6 +53,7 @@ void setup() {
 
   for (int i = 0; i < num_vials; i++) {
     Tlc.set(LEFT_PWM, i, 4095 - Input[i]);
+    Tlc.set(RIGHT_PWM, i, 4095);
   }
   while(Tlc.update());
 
@@ -55,7 +62,29 @@ void setup() {
 void loop() {
   serialEvent();
   if (stringComplete) {
-    
+    if (inputString == "bubble,ON!"){
+      SerialUSB.println("Turning bubbles ON");
+      for (int i = 0; i < num_vials; i++) {
+        Tlc.set(RIGHT_PWM, i, 1000);
+      }
+      while(Tlc.update());
+      time1 = millis();
+      time3 = time1 - time2;
+      SerialUSB.print("Time since OFF command: ");
+      SerialUSB.println(time3);
+      SerialUSB.println("");
+      }
+    if (inputString == "bubble,OFF!"){
+      SerialUSB.println("Turning bubbles OFF");
+      for (int i = 0; i < num_vials; i++) {
+        Tlc.set(RIGHT_PWM, i, 4095);
+      }
+      while(Tlc.update());
+      time2 = millis();
+      time3 = time2 - time1;
+      SerialUSB.print("Time since ON command: ");
+      SerialUSB.println(time3);
+      }
 
     SerialUSB.println(inputString);
     led.analyzeAndCheck(inputString);

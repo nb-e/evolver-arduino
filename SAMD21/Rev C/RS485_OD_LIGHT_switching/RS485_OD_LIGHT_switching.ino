@@ -1,4 +1,4 @@
-// Recurring Command: 'od_135r,1000,_!'
+  // Recurring Command: 'od_135r,1000,_!'
 // Immediate Command: 'od_135i,1000,_!'
 // Acknowledgement to Run: 'od_135a,1000,_!'
 
@@ -53,6 +53,9 @@ unsigned long time1;
 unsigned long time2;
 unsigned long time3;
 
+// bubble Pausing for OD Reading
+String bubble_address = "bubble";
+String bubble_status = "ON";
 
 void setup() {
   startMillis = millis();  //initial start time
@@ -124,7 +127,10 @@ void loop() {
     }
     update_LEDvalues();
     SerialUSB.println("Light OFF");
-    delay(100);
+    bubble_status = "OFF";
+    echo_bubbles();
+    delay(1000);
+    SerialUSB.println("bubbles OFF");
     
     time1 = millis();
     for (int n = 0; n < num_vials; n++) {
@@ -148,6 +154,10 @@ void loop() {
     }
     update_LEDvalues();
     SerialUSB.println("Light ON");
+    
+    bubble_status = "ON";
+    echo_bubbles();
+    SerialUSB.println("bubbles ON");
     startMillis = millis();  //start time of the current period
   }
   
@@ -253,6 +263,21 @@ void echoLED() {
   delay(100);
   digitalWrite(12, LOW);
 }
+
+void echo_bubbles() {
+  digitalWrite(12, HIGH);
+  
+  String outputString = bubble_address+comma+bubble_status;
+  outputString += "!";
+  delay(100);
+  if (serialAvailable) {
+    SerialUSB.println(outputString);
+    Serial1.print(outputString);
+  }  
+  delay(100);
+  digitalWrite(12, LOW);
+}
+
 
 void update_LEDvalues() {
   SerialUSB.println(" ");
